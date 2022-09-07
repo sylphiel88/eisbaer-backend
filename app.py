@@ -3,14 +3,8 @@ from flask import Flask, request
 from flask_cors import CORS, cross_origin
 from datetime import date, datetime, timedelta
 from calendar import monthrange
-import locale
-import base64
 
 from mp3_tagger import MP3File, VERSION_1, VERSION_2, VERSION_BOTH
-from os import environ
-import cv2
-from PIL import ImageFont, ImageDraw, Image
-import numpy as np
 
 import db
 
@@ -306,6 +300,7 @@ def loadCurrEvents():
         WHERE djlists.month = ? AND djlists.year = ?
         ''', (month, year))
     res = cur.fetchall()
+    print(res)
     if res is None or len(res) == 0:
         dates = getMonthDates(month, year)
         dates = [dat.strftime('%Y-%m-%d') for dat in dates]
@@ -445,70 +440,3 @@ def remDate():
     cur.close()
     conn.close()
     return json.dumps(res)
-
-@app.route('/getPreview')
-@cross_origin()
-def getPreview():
-    month, year, y0, fs0, fs1, fs2, deltay0, deltay1 = request.args.to_dict().values()
-    months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
-    monthText = months[int(month)-1]
-    conn, cur = db.connect_db()
-    cur.execute('''
-                SELECT * FROM djlists
-                LEFT JOIN events ON djlists.event = events.event_id
-                WHERE month = ? AND year = ?
-                ORDER BY date ASC
-                ''',(month, year))
-    res = cur.fetchall()
-    djprogramm = [f'{monthText} {str(year)}', '|'.join([y0, fs0, fs1, fs2, deltay0, deltay1])]
-    print(djprogramm)
-    for event in res:
-        cur.execute('SELECT name FROM djlists_djs INNER JOIN diskjockeys ON diskjockeys.dj_id = djlists_djs.dj WHERE djlist_entry = ?', (event["djlist_id"],))
-        djs = [dj["name"] for dj in cur.fetchall()]
-        oDateTime = datetime.strptime(event["date"],'%Y-%m-%d')
-        locale.setlocale(locale.LC_TIME, 'de_DE')
-        dateText = oDateTime.strftime('%a.%d.%m.')
-        djText = f'mit DJ {djs[0]}' if (len(djs) == 1 and djs[0] != '') else f'mit Djs {" und ".join(djs)}' if len(djs) > 1 else ''
-        eventText = f'{dateText}|{event["name"]}|{event["catchphrase"]} {djText}'
-        djprogramm.append(eventText)
-    enviVar = djprogramm[1].split('|')
-
-    y0 = int(enviVar[0])
-    fs0 = int(enviVar[1])
-    fs1 = int(enviVar[2])
-    fs2 = int(enviVar[3])
-    deltay0 = int(enviVar[4])
-    deltay1 = int(enviVar[5])
-
-    programm = djprogramm[2:]
-
-    pic = cv2.imread('./djplan.jpg')
-    fontpath = "./LongIslandAntiqua.ttf"
-
-    fontUe = ImageFont.truetype(fontpath, fs0)
-    fontEv = ImageFont.truetype(fontpath, fs1)
-    fontSt = ImageFont.truetype(fontpath, fs2)
-
-    x = [192, 400, 400]
-    fonts = [fontEv, fontEv, fontSt]
-    for (i, event) in enumerate(programm):
-        eventItems = event.split('|')
-        y1 = y0 + deltay0 * i
-        y2 = y1 + deltay1
-        y = [y1, y1, y2]
-        for (j, item) in enumerate(eventItems):
-            img_pil = Image.fromarray(pic)
-            draw = ImageDraw.Draw(img_pil)
-            draw.text((x[j], y[j]), item, font=fonts[j], fill=(255, 255, 255, 1))
-            pic = np.array(img_pil)
-
-    draw = ImageDraw.Draw(img_pil)
-    draw.text((525, 502), (monthText+" "+str(year)).upper(), font=fontUe, fill=(255, 255, 255, 1))
-    pic = np.array(img_pil)
-    name = "./eisbaer-preview.jpg"
-    cv2.imwrite(name, pic)
-    with open('eisbaer-preview.jpg', "rb") as file:
-        encoded_image = base64.b64encode(file.read())
-    cur.close()
-    conn.close()
-    return encoded_image
