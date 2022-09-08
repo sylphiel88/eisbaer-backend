@@ -153,7 +153,8 @@ def getPlaylistAtDate():
         ORDER BY playedSongs.played_at ASC
     ''', (selectedDate,))
     result = cur.fetchall()
-    cur.execute('SELECT name FROM djlists LEFT JOIN events ON events.event_id = djlists.event WHERE date = ?',(selectedDate, ))
+    cur.execute('SELECT name FROM djlists LEFT JOIN events ON events.event_id = djlists.event WHERE date = ?',
+                (selectedDate,))
     res = cur.fetchone()
     event = ""
     if res is not None:
@@ -271,7 +272,7 @@ def deleteEvent():
 def getMonthDates(m, y):
     m = int(m)
     y = int(y)
-    d = date(y,m, 1)
+    d = date(y, m, 1)
     dates = []
     while d.day < monthrange(y, m)[1]:
         if d.weekday() == 4 or d.weekday() == 5:
@@ -280,6 +281,7 @@ def getMonthDates(m, y):
     if d.weekday() == 4 or d.weekday() == 5:
         dates.append(d)
     return dates
+
 
 def makeEventList():
     conn, cur = db.connect_db()
@@ -303,9 +305,10 @@ def loadCurrEvents():
     cur.execute('''
         SELECT * FROM djlists
         LEFT JOIN events ON djlists.event = events.event_id
-        WHERE djlists.month = ? AND djlists.year = ?
+        WHERE month = ? AND year = ?
         ''', (month, year))
     res = cur.fetchall()
+    print(res)
     if res is None or len(res) == 0:
         dates = getMonthDates(month, year)
         dates = [dat.strftime('%Y-%m-%d') for dat in dates]
@@ -317,14 +320,16 @@ def loadCurrEvents():
     cur.execute('''
             SELECT * FROM djlists
             LEFT JOIN events ON djlists.event = events.event_id
-            WHERE djlists.month = ? AND djlists.year = ?
+            WHERE month = ? AND year = ?
             ''', (month, year))
     resEvents = cur.fetchall()
     dates = list(set([event["date"] for event in res]))
     dates.sort()
     currEvents = []
     for dat in dates:
-        cur.execute('SELECT date, dj FROM djlists_djs INNER JOIN djlists ON djlists.djlist_id = djlists_djs.djlist_entry')
+        cur.execute(
+            'SELECT date, dj FROM djlists_djs INNER JOIN djlists ON djlists.djlist_id = djlists_djs.djlist_entry '
+            'WHERE month = ? AND year = ?', (month, year))
         res = cur.fetchall()
         dj_ids = [event["dj"] for event in res if event["date"] == dat]
         names = []
@@ -339,6 +344,7 @@ def loadCurrEvents():
             "event": event,
             "djs": names
         })
+    print(currEvents)
     cur.close()
     conn.close()
     return json.dumps(currEvents)
@@ -395,8 +401,10 @@ def createEvent(event, date, month, year, djs):
     res = cur.fetchall()
     cur.close()
     conn.close()
-    resultingEvent = {"date": date, "event": res[0]["name"] if len(res) >0 and "name" in res[0].keys() else None, "djs": djs}
+    resultingEvent = {"date": date, "event": res[0]["name"] if len(res) > 0 and "name" in res[0].keys() else None,
+                      "djs": djs}
     return resultingEvent
+
 
 @app.route('/addDate', methods=['POST'])
 @cross_origin()
@@ -422,7 +430,6 @@ def addDate():
     return json.dumps(res)
 
 
-
 @app.route('/remDate', methods=['POST'])
 @cross_origin()
 def remDate():
@@ -446,29 +453,34 @@ def remDate():
     conn.close()
     return json.dumps(res)
 
+
 @app.route('/getPreview')
 @cross_origin()
 def getPreview():
     month, year, y0, fs0, fs1, fs2, deltay0, deltay1 = request.args.to_dict().values()
-    months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
-    monthText = months[int(month)-1]
+    months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November',
+              'Dezember']
+    monthText = months[int(month) - 1]
     conn, cur = db.connect_db()
     cur.execute('''
                 SELECT * FROM djlists
                 LEFT JOIN events ON djlists.event = events.event_id
                 WHERE month = ? AND year = ?
                 ORDER BY date ASC
-                ''',(month, year))
+                ''', (month, year))
     res = cur.fetchall()
     djprogramm = [f'{monthText} {str(year)}', '|'.join([y0, fs0, fs1, fs2, deltay0, deltay1])]
     print(djprogramm)
     for event in res:
-        cur.execute('SELECT name FROM djlists_djs INNER JOIN diskjockeys ON diskjockeys.dj_id = djlists_djs.dj WHERE djlist_entry = ?', (event["djlist_id"],))
+        cur.execute(
+            'SELECT name FROM djlists_djs INNER JOIN diskjockeys ON diskjockeys.dj_id = djlists_djs.dj WHERE djlist_entry = ?',
+            (event["djlist_id"],))
         djs = [dj["name"] for dj in cur.fetchall()]
-        oDateTime = datetime.strptime(event["date"],'%Y-%m-%d')
+        oDateTime = datetime.strptime(event["date"], '%Y-%m-%d')
         locale.setlocale(locale.LC_TIME, 'de_DE')
         dateText = oDateTime.strftime('%a.%d.%m.')
-        djText = f'mit DJ {djs[0]}' if (len(djs) == 1 and djs[0] != '') else f'mit Djs {" und ".join(djs)}' if len(djs) > 1 else ''
+        djText = f'mit DJ {djs[0]}' if (len(djs) == 1 and djs[0] != '') else f'mit Djs {" und ".join(djs)}' if len(
+            djs) > 1 else ''
         eventText = f'{dateText}|{event["name"]}|{event["catchphrase"]} {djText}'
         djprogramm.append(eventText)
     enviVar = djprogramm[1].split('|')
@@ -503,7 +515,7 @@ def getPreview():
             pic = np.array(img_pil)
 
     draw = ImageDraw.Draw(img_pil)
-    draw.text((525, 502), (monthText+" "+str(year)).upper(), font=fontUe, fill=(255, 255, 255, 1))
+    draw.text((525, 502), (monthText + " " + str(year)).upper(), font=fontUe, fill=(255, 255, 255, 1))
     pic = np.array(img_pil)
     name = "./eisbaer-preview.jpg"
     cv2.imwrite(name, pic)
