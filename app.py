@@ -25,8 +25,8 @@ def hello():
 
 @app.route('/getCurrentSong')
 @cross_origin()
-def getCurrentTitle():
-    folders = ['C:', 'Users', 'queue', 'Documents', 'VirtualDJ', 'History']
+def getCurrentSong():
+    folders = ['C:', 'Users', 'info', 'Documents', 'VirtualDJ', 'History']
     currDate = date.today()
     fileName = f"{currDate.year}-{currDate.month if currDate.month >= 10 else '0' + str(currDate.month)}-{currDate.day if currDate.day >= 10 else '0' + str(currDate.day)}"
     path = ''
@@ -512,3 +512,12 @@ def getPreview():
     cur.close()
     conn.close()
     return encoded_image
+
+@app.route("/getNextEvents")
+@cross_origin()
+def getNextEvents():
+    conn, cur = db.connect_db()
+    cur.execute('SELECT * FROM djlists_djs INNER JOIN djlists ON djlists.djlist_id = djlists_djs.djlist_entry LEFT JOIN events ON djlists.event = events.event_id where date >= DATE() LIMIT 6')
+    result = cur.fetchall()
+    return result
+
