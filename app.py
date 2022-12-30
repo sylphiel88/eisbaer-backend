@@ -517,7 +517,7 @@ def getPreview():
 @cross_origin()
 def getNextEvents():
     conn, cur = db.connect_db()
-    cur.execute('SELECT * FROM djlists_djs INNER JOIN djlists ON djlists.djlist_id = djlists_djs.djlist_entry LEFT JOIN events ON djlists.event = events.event_id where date >= DATE() LIMIT 6')
+    cur.execute('SELECT diskJockeys.name as DjName, events.name, events.catchphrase, djlists.date FROM djlists_djs INNER JOIN djlists ON djlists.djlist_id = djlists_djs.djlist_entry INNER JOIN diskJockeys ON djlists_djs.dj = diskJockeys.dj_id LEFT JOIN events ON djlists.event = events.event_id where date > DATE() ORDER BY date ASC LIMIT 6')
     result = cur.fetchall()
     return result
 
